@@ -10,7 +10,10 @@ import { AnimatedAvatar } from "./AnimatedAvatar";
 
 type Msg = { role: "user" | "assistant"; content: string; timestamp?: number; actionResults?: any[] };
 
-const CHAT_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/ai-chat`;
+const isProd = import.meta.env.PROD;
+const proxyUrl = typeof window !== 'undefined' ? `${window.location.origin}/supabase-api` : '';
+const baseUrl = isProd && proxyUrl ? proxyUrl : import.meta.env.VITE_SUPABASE_URL;
+const CHAT_URL = `${baseUrl}/functions/v1/ai-chat`;
 const STORAGE_KEY = "flux-ai-chat-history";
 
 const SUGGESTIONS = [
