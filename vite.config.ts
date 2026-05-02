@@ -18,8 +18,12 @@ export default defineConfig(({ mode }) => ({
       includeAssets: ["favicon.ico", "robots.txt"],
       workbox: {
         globPatterns: ["**/*.{js,css,html,ico,png,svg,woff2}"],
-        navigateFallbackDenylist: [/^\/~oauth/, /^https:\/\/.*\.supabase\.co/],
+        navigateFallbackDenylist: [/^\/~oauth/, /^https:\/\/.*\.supabase\.co/, /^\/supabase-api/],
         runtimeCaching: [
+          {
+            urlPattern: /^\/supabase-api\/.*/i,
+            handler: "NetworkOnly",
+          },
           {
             urlPattern: /^https:\/\/.*\.supabase\.co\/.*/i,
             handler: "NetworkOnly",
