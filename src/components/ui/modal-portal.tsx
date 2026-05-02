@@ -43,21 +43,21 @@ const ModalPortal = ({ open, onClose, children, title, maxWidth = "max-w-md", fo
             style={{ zIndex: 9998, background: "hsl(228 16% 6% / 0.8)", backdropFilter: "blur(8px)" }}
             onClick={onClose}
           />
-          <motion.div
-            initial={{ opacity: 0, scale: 0.95, y: 10 }}
-            animate={{ opacity: 1, scale: 1, y: 0 }}
-            exit={{ opacity: 0, scale: 0.95, y: 10 }}
-            transition={{ type: "spring", stiffness: 400, damping: 30 }}
-            className={`fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[calc(100%-2rem)] ${maxWidth} flex flex-col max-h-[85vh]`}
-            style={{
-              zIndex: 9999,
-              background: "linear-gradient(160deg, hsl(228 14% 18% / 0.95), hsl(228 14% 14% / 0.95))",
-              backdropFilter: "blur(40px) saturate(1.5)",
-              borderRadius: "20px",
-              border: "1px solid hsl(0 0% 100% / 0.08)",
-              boxShadow: "0 25px 80px -12px hsl(228 16% 4% / 0.8), inset 0 1px 0 hsl(0 0% 100% / 0.04)",
-            }}
-          >
+          <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 pointer-events-none">
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95, y: 10 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: 10 }}
+              transition={{ type: "spring", stiffness: 400, damping: 30 }}
+              className={`pointer-events-auto w-full ${maxWidth} flex flex-col max-h-[85vh] relative`}
+              style={{
+                background: "linear-gradient(160deg, hsl(228 14% 18% / 0.95), hsl(228 14% 14% / 0.95))",
+                backdropFilter: "blur(40px) saturate(1.5)",
+                borderRadius: "20px",
+                border: "1px solid hsl(0 0% 100% / 0.08)",
+                boxShadow: "0 25px 80px -12px hsl(228 16% 4% / 0.8), inset 0 1px 0 hsl(0 0% 100% / 0.04)",
+              }}
+            >
             {title && (
               <div className="flex items-center justify-between p-6 pb-0 flex-shrink-0">
                 <h2 className="text-foreground font-bold text-lg">{title}</h2>
@@ -73,6 +73,7 @@ const ModalPortal = ({ open, onClose, children, title, maxWidth = "max-w-md", fo
               </div>
             )}
           </motion.div>
+          </div>
         </>
       )}
     </AnimatePresence>,

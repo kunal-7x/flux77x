@@ -6,6 +6,7 @@ import remarkGfm from "remark-gfm";
 import Papa from "papaparse";
 import { queryClient } from "@/App";
 import { chatEvents, TABLE_QUERY_KEYS } from "@/lib/chatEvents";
+import { AnimatedAvatar } from "./AnimatedAvatar";
 
 type Msg = { role: "user" | "assistant"; content: string; timestamp?: number; actionResults?: any[] };
 
@@ -46,6 +47,10 @@ const AIChatbot = () => {
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const fileRef = useRef<HTMLInputElement>(null);
   const recognitionRef = useRef<any>(null);
+  const isDragging = useRef(false);
+  const buttonRef = useRef<HTMLButtonElement>(null);
+  const [chatOrigin, setChatOrigin] = useState({ left: 0, top: 0, transformOrigin: "bottom right" });
+  const [isPlaced, setIsPlaced] = useState(false);
 
   // Auto-scroll
   useEffect(() => {
@@ -249,29 +254,56 @@ const AIChatbot = () => {
 
   const chatSize = expanded
     ? "fixed inset-0 z-[100]"
-    : "fixed bottom-24 right-4 lg:bottom-6 lg:right-6 w-[420px] h-[600px] z-[100] rounded-3xl";
+    : "fixed w-[420px] h-[600px] z-[100] rounded-3xl";
 
   const hasActions = messages.some(m => m.actionResults && m.actionResults.length > 0);
 
   return (
     <>
       {/* Floating trigger button */}
-      <AnimatePresence>
-        {!open && (
-          <motion.button
-            initial={{ scale: 0 }} animate={{ scale: 1 }} exit={{ scale: 0 }}
-            whileHover={{ scale: 1.1 }} whileTap={{ scale: 0.9 }}
-            onClick={() => setOpen(true)}
-            className="fixed bottom-24 right-4 lg:bottom-6 lg:right-6 z-[100] w-14 h-14 rounded-2xl bg-primary text-primary-foreground flex items-center justify-center shadow-2xl"
-            style={{ boxShadow: "0 0 30px hsl(var(--primary) / 0.4)" }}
-            title="Open Flux AI (Ctrl+Shift+K)"
-          >
-            <Sparkles size={22} />
-            {/* Notification dot if there were recent actions */}
-            {hasActions && <span className="absolute -top-1 -right-1 w-3 h-3 rounded-full bg-chart-green animate-pulse" />}
-          </motion.button>
-        )}
-      </AnimatePresence>
+      <motion.button
+        ref={buttonRef}
+        drag
+        dragConstraints={{ left: -window.innerWidth + 80, right: 0, top: -window.innerHeight + 80, bottom: 0 }}
+        dragElastic={0}
+        dragMomentum={false}
+        onDragStart={() => { isDragging.current = true; }}
+        onDragEnd={() => { setTimeout(() => { isDragging.current = false; setIsPlaced(true); }, 150); }}
+        animate={{ scale: open ? 0 : 1 }}
+        whileHover={!open ? { scale: 1.05 } : undefined}
+        whileTap={!open ? { scale: 0.95 } : undefined}
+        onClick={() => {
+          if (isDragging.current || open) return;
+          if (buttonRef.current) {
+            const rect = buttonRef.current.getBoundingClientRect();
+            const isLeft = rect.left < window.innerWidth / 2;
+            const isTop = rect.top < window.innerHeight / 2;
+            
+            let left = isLeft ? rect.left : rect.right - 420;
+            let top = isTop ? rect.bottom + 10 : rect.top - 600 - 10;
+            
+            left = Math.max(10, Math.min(left, window.innerWidth - 430));
+            top = Math.max(10, Math.min(top, window.innerHeight - 610));
+            
+            setChatOrigin({
+               left, top,
+               transformOrigin: `${isLeft ? 'left' : 'right'} ${isTop ? 'top' : 'bottom'}`
+            });
+            setIsPlaced(true);
+          }
+          setOpen(true);
+        }}
+        className="fixed bottom-24 right-4 lg:bottom-6 lg:right-6 z-[100] w-20 h-20 rounded-full bg-transparent text-primary-foreground flex items-center justify-center cursor-grab active:cursor-grabbing p-0 overflow-visible border-none"
+        style={{ 
+          filter: "drop-shadow(0 10px 15px hsl(var(--primary) / 0.2))",
+          pointerEvents: open ? "none" : "auto"
+        }}
+        title="Open Flux AI (Ctrl+Shift+K)"
+      >
+        <AnimatedAvatar size={80} className="pointer-events-none" />
+        {/* Notification dot if there were recent actions */}
+        {hasActions && <span className="absolute top-0 right-0 w-3 h-3 rounded-full bg-chart-green animate-pulse z-10 shadow-sm" />}
+      </motion.button>
 
       {/* Chat panel */}
       <AnimatePresence>
@@ -282,10 +314,17 @@ const AIChatbot = () => {
                 className="fixed inset-0 bg-background/80 backdrop-blur-sm z-[99]" onClick={() => setExpanded(false)} />
             )}
             <motion.div
-              initial={{ opacity: 0, scale: 0.9, y: 20 }} animate={{ opacity: 1, scale: 1, y: 0 }} exit={{ opacity: 0, scale: 0.9, y: 20 }}
+              initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.9 }}
               transition={{ type: "spring", stiffness: 400, damping: 30 }}
               className={`${chatSize} ${expanded ? "bg-background" : "glass-card"} flex flex-col overflow-hidden shadow-2xl`}
-              style={expanded ? {} : { boxShadow: "0 25px 80px -12px hsl(var(--primary) / 0.2)" }}
+              style={expanded ? {} : { 
+                boxShadow: "0 25px 80px -12px hsl(var(--primary) / 0.2)",
+                left: isPlaced ? chatOrigin.left : undefined,
+                top: isPlaced ? chatOrigin.top : undefined,
+                bottom: isPlaced ? undefined : "24px",
+                right: isPlaced ? undefined : "24px",
+                transformOrigin: isPlaced ? chatOrigin.transformOrigin : "bottom right"
+              }}
             >
               {/* Header */}
               <div className="flex items-center justify-between p-4 border-b border-border/30">

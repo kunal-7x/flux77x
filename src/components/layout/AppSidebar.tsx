@@ -86,7 +86,6 @@ const AppSidebar = ({ activeNav, onNavChange, onSignOut }: AppSidebarProps) => {
                 <motion.div
                   layoutId="sidebarIndicator"
                   className="absolute left-0 top-0 bottom-0 my-auto w-1 h-5 rounded-r-full bg-primary-foreground"
-                  style={{ top: "50%", transform: "translateY(-50%)" }}
                   transition={{ type: "spring", stiffness: 400, damping: 30 }}
                 />
               )}
