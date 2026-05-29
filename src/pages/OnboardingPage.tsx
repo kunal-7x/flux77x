@@ -5,6 +5,7 @@ import { useToast } from "@/hooks/use-toast";
 import ModalPortal from "@/components/ui/modal-portal";
 import { supabase } from "@/integrations/supabase/client";
 import { usePermissions } from "@/hooks/usePermissions";
+import { useAiActionFocus } from "@/hooks/useAiActionFocus";
 
 const OnboardingPage = () => {
   const [tasks, setTasks] = useState<any[]>([]);
@@ -23,6 +24,7 @@ const OnboardingPage = () => {
     if (t) setTasks(t);
     if (e) setEmployees(e);
   }, []);
+  const aiFocus = useAiActionFocus("onboarding_tasks", fetchData);
 
   useEffect(() => { fetchData(); }, [fetchData]);
 
@@ -87,7 +89,7 @@ const OnboardingPage = () => {
               </div>
               <div className="space-y-1">
                 {empTasks.map((task: any) => (
-                  <button key={task.id} onClick={() => toggleTask(task.id, task.completed)} className="w-full flex items-center gap-3 p-2.5 rounded-xl hover:bg-secondary/20 transition-colors text-left">
+                  <button key={task.id} onClick={() => toggleTask(task.id, task.completed)} className={`w-full flex items-center gap-3 p-2.5 rounded-xl hover:bg-secondary/20 transition-colors text-left ${aiFocus.focusClass(task.id)}`}>
                     {task.completed ? <CheckCircle2 size={16} className="text-chart-green flex-shrink-0" /> : <Circle size={16} className="text-muted-foreground flex-shrink-0" />}
                     <span className={`text-sm flex-1 ${task.completed ? "text-muted-foreground line-through" : "text-foreground"}`}>{task.title}</span>
                     <span className="text-[10px] text-muted-foreground bg-secondary/40 px-2 py-0.5 rounded-full">{task.category}</span>

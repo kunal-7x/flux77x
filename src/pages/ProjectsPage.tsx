@@ -5,6 +5,7 @@ import { useToast } from "@/hooks/use-toast";
 import ModalPortal from "@/components/ui/modal-portal";
 import { supabase } from "@/integrations/supabase/client";
 import { usePermissions } from "@/hooks/usePermissions";
+import { useAiActionFocus } from "@/hooks/useAiActionFocus";
 
 type ProjectStatus = "In Progress" | "Completed" | "Planning" | "On Hold";
 type ProjectFilter = "All" | ProjectStatus;
@@ -48,6 +49,7 @@ const ProjectsPage = () => {
       setProjects(data.map(p => ({ id: p.id, name: p.name, description: p.description || "", status: (p.status as ProjectStatus) || "Planning", progress: p.progress || 0, team: p.team || [], deadline: p.deadline || "TBD", tasks: { total: p.tasks_total || 0, completed: p.tasks_completed || 0 } })));
     }
   }, []);
+  const aiFocus = useAiActionFocus(["projects", "project_tasks"], fetchProjects);
 
   useEffect(() => { fetchProjects(); }, [fetchProjects]);
 
@@ -102,7 +104,7 @@ const ProjectsPage = () => {
           {filtered.map((project, i) => {
             const config = statusConfig[project.status];
             return (
-              <motion.div key={project.id} initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.06 }} className="glass-card-hover p-5 flex flex-col gap-4 cursor-pointer group" onClick={() => setSelectedProject(project)}>
+              <motion.div key={project.id} initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.06 }} className={`glass-card-hover p-5 flex flex-col gap-4 cursor-pointer group ${aiFocus.focusClass(project.id)}`} onClick={() => setSelectedProject(project)}>
                 <div className="flex items-start justify-between">
                   <div className="flex items-center gap-3">
                     <div className={`w-10 h-10 rounded-xl ${config.bg} flex items-center justify-center ${config.color} flex-shrink-0`}><FolderOpen size={18} /></div>

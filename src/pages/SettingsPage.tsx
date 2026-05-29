@@ -1,9 +1,10 @@
 import { motion } from "framer-motion";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { Building2, Users, Shield, Bell, Palette, Globe, Calendar, Clock, Save, Plus, Trash2, Check, RotateCcw } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { useTheme } from "@/hooks/useTheme";
+import { useAiActionFocus } from "@/hooks/useAiActionFocus";
 
 const tabs = ["Company", "Users & Roles", "Notifications", "Policies", "Appearance"] as const;
 
@@ -56,24 +57,29 @@ const SettingsPage = () => {
     { label: "New announcement", email: false, push: true, sms: false },
   ]);
 
-  useEffect(() => {
-    const loadSettings = async () => {
-      const { data } = await supabase.from("company_settings").select("*").limit(1).single();
-      if (data) {
-        setCompanyName(data.company_name || "Flux Technologies Inc.");
-        setIndustry(data.industry || "Technology");
-        setTimezone(data.timezone || "UTC-5 (Eastern)");
-        setFiscalYear(data.fiscal_year || "January - December");
-        setWorkHoursStart(data.work_hours_start || "09:00");
-        setWorkHoursEnd(data.work_hours_end || "18:00");
-        setGpsTracking(data.gps_tracking ?? true);
-        setAutoPunchOut(data.auto_punch_out ?? true);
-        setRemoteCheckin(data.remote_checkin ?? true);
-        setOvertimeApproval(data.overtime_approval ?? false);
-      }
-    };
-    loadSettings();
+  const loadSettings = useCallback(async () => {
+    const { data } = await supabase.from("company_settings").select("*").limit(1).single();
+    if (data) {
+      setCompanyName(data.company_name || "Flux Technologies Inc.");
+      setIndustry(data.industry || "Technology");
+      setTimezone(data.timezone || "UTC-5 (Eastern)");
+      setFiscalYear(data.fiscal_year || "January - December");
+      setWorkHoursStart(data.work_hours_start || "09:00");
+      setWorkHoursEnd(data.work_hours_end || "18:00");
+      setGpsTracking(data.gps_tracking ?? true);
+      setAutoPunchOut(data.auto_punch_out ?? true);
+      setRemoteCheckin(data.remote_checkin ?? true);
+      setOvertimeApproval(data.overtime_approval ?? false);
+    }
   }, []);
+
+  const handleAiAction = useCallback(() => {
+    setActiveTab("Company");
+    loadSettings();
+  }, [loadSettings]);
+  useAiActionFocus(["company_settings", "departments"], handleAiAction);
+
+  useEffect(() => { loadSettings(); }, [loadSettings]);
 
   const handleSave = async () => {
     setSaving(true);

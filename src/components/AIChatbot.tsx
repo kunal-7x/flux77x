@@ -82,7 +82,14 @@ const AIChatbot = () => {
       if (r.ok && r.table) {
         const keys = TABLE_QUERY_KEYS[r.table] || [r.table];
         keys.forEach(k => queryClient.invalidateQueries({ queryKey: [k] }));
-        chatEvents.emit("action", { table: r.table, op: r.op });
+        chatEvents.emit("action", {
+          table: r.table,
+          op: r.op,
+          action: r.action,
+          id: r.id || r.record?.id || r.records?.[0]?.id,
+          record: r.record,
+          records: r.records,
+        });
       }
     });
   }, []);

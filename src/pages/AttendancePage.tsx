@@ -1,9 +1,10 @@
 import { motion, AnimatePresence } from "framer-motion";
-import { useState } from "react";
+import { useCallback, useState } from "react";
 import { Clock, LogIn, LogOut, MapPin, Calendar, CheckCircle2, X, ChevronLeft, ChevronRight } from "lucide-react";
 import ModalPortal from "@/components/ui/modal-portal";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
+import { useAiActionFocus } from "@/hooks/useAiActionFocus";
 
 const weekDays = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
 
@@ -57,6 +58,19 @@ const AttendancePage = () => {
   const [currentYear, setCurrentYear] = useState(2026);
   const [selectedDay, setSelectedDay] = useState<{ day: number; status: AttendanceStatus; checkIn: string; checkOut: string } | null>(null);
   const { toast } = useToast();
+
+  const handleAiAttendance = useCallback((payload: any) => {
+    const record = payload.record;
+    if (!record?.check_in) return;
+    if (record.check_out) {
+      setCheckedIn(false);
+      setCheckInTime(null);
+      return;
+    }
+    setCheckedIn(true);
+    setCheckInTime(new Date(record.check_in).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }));
+  }, []);
+  useAiActionFocus("attendance_records", handleAiAttendance);
 
   const calendarDays = generateCalendar(currentYear, currentMonth);
   const firstDayOffset = new Date(currentYear, currentMonth, 1).getDay();

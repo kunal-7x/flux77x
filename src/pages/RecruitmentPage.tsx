@@ -5,6 +5,7 @@ import { useToast } from "@/hooks/use-toast";
 import ModalPortal from "@/components/ui/modal-portal";
 import { supabase } from "@/integrations/supabase/client";
 import { usePermissions } from "@/hooks/usePermissions";
+import { useAiActionFocus } from "@/hooks/useAiActionFocus";
 
 const tabs = ["Jobs", "Candidates", "Interviews"] as const;
 
@@ -45,6 +46,14 @@ const RecruitmentPage = () => {
     if (c) setCandidates(c);
     if (iv) setInterviews(iv);
   }, []);
+
+  const handleAiAction = useCallback((payload: any) => {
+    if (payload.table === "candidates") setActiveTab("Candidates");
+    else if (payload.table === "interviews") setActiveTab("Interviews");
+    else setActiveTab("Jobs");
+    fetchAll();
+  }, [fetchAll]);
+  const aiFocus = useAiActionFocus(["jobs", "candidates", "interviews"], handleAiAction);
 
   useEffect(() => { fetchAll(); }, [fetchAll]);
 
@@ -97,7 +106,7 @@ const RecruitmentPage = () => {
           <div className="space-y-3">
             {jobs.length === 0 && <div className="glass-card p-12 text-center text-muted-foreground">No job openings yet. Create your first job posting.</div>}
             {jobs.map((job, i) => (
-              <motion.div key={job.id} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.04 }} className="glass-card-hover p-5">
+              <motion.div key={job.id} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.04 }} className={`glass-card-hover p-5 ${aiFocus.focusClass(job.id)}`}>
                 <div className="flex items-start justify-between gap-3">
                   <div className="flex items-center gap-3">
                     <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center text-primary"><Briefcase size={18} /></div>
@@ -122,7 +131,7 @@ const RecruitmentPage = () => {
           <div className="space-y-3">
             {candidates.length === 0 && <div className="glass-card p-12 text-center text-muted-foreground">No candidates yet.</div>}
             {candidates.map((c, i) => (
-              <motion.div key={c.id} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.04 }} className="glass-card-hover p-5 flex items-center gap-4">
+              <motion.div key={c.id} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.04 }} className={`glass-card-hover p-5 flex items-center gap-4 ${aiFocus.focusClass(c.id)}`}>
                 <div className="w-10 h-10 rounded-xl bg-secondary flex items-center justify-center text-xs font-bold text-muted-foreground">
                   {c.name?.split(" ").map((n: string) => n[0]).join("").slice(0, 2)}
                 </div>
@@ -143,7 +152,7 @@ const RecruitmentPage = () => {
           <div className="space-y-3">
             {interviews.length === 0 && <div className="glass-card p-12 text-center text-muted-foreground">No interviews scheduled.</div>}
             {interviews.map((iv, i) => (
-              <motion.div key={iv.id} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.04 }} className="glass-card-hover p-5 flex items-center gap-4">
+              <motion.div key={iv.id} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.04 }} className={`glass-card-hover p-5 flex items-center gap-4 ${aiFocus.focusClass(iv.id)}`}>
                 <div className="w-10 h-10 rounded-xl bg-chart-blue/10 flex items-center justify-center text-chart-blue"><Calendar size={18} /></div>
                 <div className="flex-1 min-w-0">
                   <p className="text-foreground font-semibold text-sm">{iv.interviewer || "TBD"}</p>

@@ -5,6 +5,7 @@ import { useToast } from "@/hooks/use-toast";
 import ModalPortal from "@/components/ui/modal-portal";
 import { supabase } from "@/integrations/supabase/client";
 import { usePermissions } from "@/hooks/usePermissions";
+import { useAiActionFocus } from "@/hooks/useAiActionFocus";
 
 interface Announcement {
   id: string; title: string; content: string; author: string; authorInitials: string;
@@ -26,6 +27,22 @@ const categoryColors: Record<string, string> = {
   Recognition: "text-chart-lime bg-chart-lime/10",
 };
 
+const mapAnnouncement = (a: any): Announcement => ({
+  id: a.id,
+  title: a.title,
+  content: a.content,
+  author: a.author || "Team",
+  authorInitials: a.author_initials || "AI",
+  date: a.created_at ? new Date(a.created_at).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }) : "Just now",
+  pinned: Boolean(a.pinned),
+  likes: a.likes || 0,
+  comments: a.comments || 0,
+  views: a.views || 0,
+  category: a.category || "Company",
+  liked: false,
+  commentsList: [],
+});
+
 const AnnouncementsPage = () => {
   const [filter, setFilter] = useState("All");
   const [announcements, setAnnouncements] = useState(initialAnnouncements);
@@ -37,13 +54,21 @@ const AnnouncementsPage = () => {
   const { toast } = useToast();
   const { canCreateAnnouncement } = usePermissions();
 
+  const fetchAnnouncements = useCallback(async () => {
+    const { data } = await supabase.from("announcements").select("*").order("created_at", { ascending: false });
+    if (data) setAnnouncements(data.map(mapAnnouncement));
+  }, []);
+  const aiFocus = useAiActionFocus("announcements", fetchAnnouncements);
+
+  useEffect(() => { fetchAnnouncements(); }, [fetchAnnouncements]);
+
   // Realtime subscription
   useEffect(() => {
     const channel = supabase.channel('announcements-realtime').on('postgres_changes', { event: '*', schema: 'public', table: 'announcements' }, () => {
-      // Refetch on changes from other users
+      fetchAnnouncements();
     }).subscribe();
     return () => { supabase.removeChannel(channel); };
-  }, []);
+  }, [fetchAnnouncements]);
 
   const filtered = filter === "All" ? announcements : announcements.filter(a => a.category === filter);
   const pinned = filtered.filter(a => a.pinned);
@@ -75,8 +100,7 @@ const AnnouncementsPage = () => {
     const { data, error } = await supabase.from("announcements").insert({ title: newPost.title, content: newPost.content, category: newPost.category, author: "You", author_initials: "YO" }).select().single();
     if (error) { toast({ title: "Error", description: error.message, variant: "destructive" }); }
     else {
-      const post: Announcement = { id: data.id, title: data.title, content: data.content, author: data.author, authorInitials: data.author_initials || "YO", date: new Date(data.created_at).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }), pinned: false, likes: 0, comments: 0, views: 0, liked: false, commentsList: [], category: data.category || "Company" };
-      setAnnouncements(prev => [post, ...prev]);
+      setAnnouncements(prev => [mapAnnouncement(data), ...prev]);
       setNewPostOpen(false);
       setNewPost({ title: "", content: "", category: "Company" });
       toast({ title: "Post Created!" });
@@ -113,12 +137,12 @@ const AnnouncementsPage = () => {
         {pinned.length > 0 && (
           <div className="space-y-3">
             <span className="section-title flex items-center gap-1.5"><Pin size={12} />Pinned</span>
-            {pinned.map((a, i) => <AnnouncementCard key={a.id} announcement={a} index={i} onLike={toggleLike} onComment={setCommentingOn} onShare={shareAnnouncement} />)}
+            {pinned.map((a, i) => <AnnouncementCard key={a.id} announcement={a} index={i} focused={aiFocus.isFocused(a.id)} onLike={toggleLike} onComment={setCommentingOn} onShare={shareAnnouncement} />)}
           </div>
         )}
         <div className="space-y-3">
           {pinned.length > 0 && <span className="section-title">Recent</span>}
-          {regular.map((a, i) => <AnnouncementCard key={a.id} announcement={a} index={i} onLike={toggleLike} onComment={setCommentingOn} onShare={shareAnnouncement} />)}
+          {regular.map((a, i) => <AnnouncementCard key={a.id} announcement={a} index={i} focused={aiFocus.isFocused(a.id)} onLike={toggleLike} onComment={setCommentingOn} onShare={shareAnnouncement} />)}
         </div>
       </motion.div>
 
@@ -152,8 +176,8 @@ const AnnouncementsPage = () => {
   );
 };
 
-const AnnouncementCard = ({ announcement: a, index, onLike, onComment, onShare }: { announcement: Announcement; index: number; onLike: (id: string) => void; onComment: (id: string) => void; onShare: (title: string) => void }) => (
-  <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: index * 0.04 }} className="glass-card-hover p-5">
+const AnnouncementCard = ({ announcement: a, index, focused, onLike, onComment, onShare }: { announcement: Announcement; index: number; focused?: boolean; onLike: (id: string) => void; onComment: (id: string) => void; onShare: (title: string) => void }) => (
+  <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: index * 0.04 }} className={`glass-card-hover p-5 ${focused ? "ai-focus-ring" : ""}`}>
     <div className="flex items-start gap-3 mb-3">
       <div className="w-10 h-10 rounded-xl bg-secondary flex items-center justify-center text-xs font-bold text-muted-foreground flex-shrink-0">{a.authorInitials}</div>
       <div className="flex-1 min-w-0">

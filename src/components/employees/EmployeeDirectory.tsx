@@ -1,4 +1,4 @@
-import { useState, useCallback, useRef } from "react";
+import { useEffect, useState, useCallback, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Search, Upload, Filter, ArrowUpDown, Eye, FileText } from "lucide-react";
 import Papa from "papaparse";
@@ -11,12 +11,17 @@ interface EmployeeDirectoryProps {
   employees: Employee[];
   onSelectEmployee: (emp: Employee) => void;
   onImportCSV: (data: any[]) => Promise<number>;
+  aiFocus?: {
+    id?: string;
+    search?: string;
+    op?: string;
+  };
 }
 
 const CSV_TEMPLATE = `first_name,last_name,email,phone,role,department,level,manager,city,salary,bonus,performance_score,vacation_days,date_of_birth,nationality,address,emergency_contact,emergency_phone,join_date,employee_id,status,skills
 John,Doe,john@example.com,(555) 123-4567,Software Engineer,Developers,Senior,Jane Smith,New York,5000,800,85,20,1990-01-15,American,123 Main St,Jane Doe,(555) 987-6543,2022-01-01,EMP-NEW,active,"React,TypeScript,Node.js"`;
 
-const EmployeeDirectory = ({ employees, onSelectEmployee, onImportCSV }: EmployeeDirectoryProps) => {
+const EmployeeDirectory = ({ employees, onSelectEmployee, onImportCSV, aiFocus }: EmployeeDirectoryProps) => {
   const [search, setSearch] = useState("");
   const [deptFilter, setDeptFilter] = useState("All");
   const [statusFilter, setStatusFilter] = useState("All");
@@ -28,18 +33,29 @@ const EmployeeDirectory = ({ employees, onSelectEmployee, onImportCSV }: Employe
   const fileRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
 
+  useEffect(() => {
+    if (!aiFocus) return;
+    setSearch(aiFocus.search || "");
+    setDeptFilter("All");
+    setStatusFilter("All");
+  }, [aiFocus?.id, aiFocus?.search]);
+
   const departments = ["All", ...Array.from(new Set(employees.map(e => e.department)))];
   const statuses = ["All", "active", "on-leave", "inactive"];
 
   const filtered = employees
     .filter(e => {
       const q = search.toLowerCase();
-      const matchSearch = !q || `${e.firstName} ${e.lastName} ${e.email} ${e.role} ${e.employeeId}`.toLowerCase().includes(q);
+      const matchSearch = !q || `${e.firstName} ${e.lastName} ${e.email} ${e.role} ${e.employeeId || ""} ${e.id}`.toLowerCase().includes(q);
       const matchDept = deptFilter === "All" || e.department === deptFilter;
       const matchStatus = statusFilter === "All" || e.status === statusFilter;
       return matchSearch && matchDept && matchStatus;
     })
     .sort((a, b) => {
+      if (aiFocus?.id) {
+        if (a.id === aiFocus.id) return -1;
+        if (b.id === aiFocus.id) return 1;
+      }
       let cmp = 0;
       if (sortBy === "name") cmp = `${a.firstName} ${a.lastName}`.localeCompare(`${b.firstName} ${b.lastName}`);
       else if (sortBy === "department") cmp = a.department.localeCompare(b.department);
@@ -160,14 +176,19 @@ const EmployeeDirectory = ({ employees, onSelectEmployee, onImportCSV }: Employe
                 </tr>
               </thead>
               <tbody>
-                {filtered.map((emp, i) => (
+                {filtered.map((emp, i) => {
+                  const focused = aiFocus?.id === emp.id;
+                  return (
                   <motion.tr key={emp.id} initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: i * 0.02 }}
-                    className="border-b border-border/10 hover:bg-secondary/20 transition-colors cursor-pointer" onClick={() => onSelectEmployee(emp)}>
+                    className={`border-b border-border/10 hover:bg-secondary/20 transition-colors cursor-pointer ${focused ? "ai-focus-ring" : ""}`} onClick={() => onSelectEmployee(emp)}>
                     <td className="px-4 py-3">
                       <div className="flex items-center gap-3">
                         <div className="w-9 h-9 rounded-xl bg-secondary flex items-center justify-center text-xs font-bold text-muted-foreground">{emp.firstName[0]}{emp.lastName[0]}</div>
                         <div>
-                          <p className="text-foreground text-sm font-semibold">{emp.firstName} {emp.lastName}</p>
+                          <p className="text-foreground text-sm font-semibold flex flex-wrap items-center gap-2">
+                            <span>{emp.firstName} {emp.lastName}</span>
+                            {focused && <span className="ai-focus-badge">AI updated</span>}
+                          </p>
                           <p className="text-muted-foreground text-xs">{emp.email}</p>
                         </div>
                       </div>
@@ -188,7 +209,8 @@ const EmployeeDirectory = ({ employees, onSelectEmployee, onImportCSV }: Employe
                       </div>
                     </td>
                   </motion.tr>
-                ))}
+                  );
+                })}
               </tbody>
             </table>
           </div>

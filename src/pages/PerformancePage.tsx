@@ -5,6 +5,7 @@ import { useToast } from "@/hooks/use-toast";
 import ModalPortal from "@/components/ui/modal-portal";
 import { supabase } from "@/integrations/supabase/client";
 import { usePermissions } from "@/hooks/usePermissions";
+import { useAiActionFocus } from "@/hooks/useAiActionFocus";
 
 const tabs = ["Overview", "Goals & OKRs", "Reviews", "Competencies"] as const;
 
@@ -50,8 +51,14 @@ const PerformancePage = () => {
       })));
     }
   }, []);
+  const handleAiAction = useCallback(() => {
+    setActiveTab("Goals & OKRs");
+    fetchGoals();
+  }, [fetchGoals]);
+  const aiFocus = useAiActionFocus("goals", handleAiAction);
 
   useEffect(() => { fetchGoals(); }, [fetchGoals]);
+  useEffect(() => { if (aiFocus.id) setActiveTab("Goals & OKRs"); }, [aiFocus.id]);
 
   const reviews = [
     { period: "Q4 2025", rating: 4.5, reviewer: "Ava Collins", status: "Completed", feedback: "Excellent communication and design quality." },
@@ -146,7 +153,7 @@ const PerformancePage = () => {
         {activeTab === "Goals & OKRs" && (
           <div className="space-y-3">
             {goals.map((goal, i) => (
-              <motion.div key={goal.id} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.05 }} className="glass-card-hover p-5">
+              <motion.div key={goal.id} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.05 }} className={`glass-card-hover p-5 ${aiFocus.focusClass(goal.id)}`}>
                 <div className="flex items-start justify-between gap-3">
                   <div className="flex-1">
                     <div className="flex items-center gap-2 mb-1 flex-wrap">

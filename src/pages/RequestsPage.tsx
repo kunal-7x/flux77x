@@ -1,7 +1,9 @@
 import { motion } from "framer-motion";
-import { useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { Check, X, Clock } from "lucide-react";
 import { usePermissions } from "@/hooks/usePermissions";
+import { supabase } from "@/integrations/supabase/client";
+import { useAiActionFocus } from "@/hooks/useAiActionFocus";
 
 type RequestStatus = "pending" | "approved" | "rejected";
 type RequestFilter = "All" | "Pending" | "Approved" | "Rejected";
@@ -28,15 +30,51 @@ const statusConfig: Record<RequestStatus, { label: string; bg: string; text: str
   rejected: { label: "Rejected", bg: "bg-chart-red/10", text: "text-chart-red", icon: X },
 };
 
+const formatDate = (value: string) => new Date(value).toLocaleDateString("en-US", { month: "short", day: "numeric" });
+
+const getDuration = (start: string, end: string) => {
+  const startDate = new Date(start);
+  const endDate = new Date(end);
+  const days = Math.max(1, Math.round((endDate.getTime() - startDate.getTime()) / 86400000) + 1);
+  return `${days} ${days === 1 ? "day" : "days"}`;
+};
+
+const mapLeaveRequest = (row: any): Request => {
+  const employee = Array.isArray(row.employees) ? row.employees[0] : row.employees;
+  const employeeName = employee ? `${employee.first_name || ""} ${employee.last_name || ""}`.trim() : "";
+  return {
+    id: row.id,
+    name: employeeName || row.employee_id || "Employee",
+    type: row.leave_type || "Leave",
+    date: `${formatDate(row.start_date)} - ${formatDate(row.end_date)}`,
+    duration: getDuration(row.start_date, row.end_date),
+    reason: row.reason || "No reason provided",
+    status: (row.status || "pending") as RequestStatus,
+  };
+};
+
 const RequestsPage = () => {
   const [filter, setFilter] = useState<RequestFilter>("All");
   const [localRequests, setLocalRequests] = useState(requests);
   const { canApproveLeave } = usePermissions();
 
+  const fetchRequests = useCallback(async () => {
+    const { data } = await supabase
+      .from("leave_requests")
+      .select("*, employees!leave_requests_employee_id_fkey(first_name,last_name)")
+      .order("created_at", { ascending: false });
+    if (data && data.length > 0) setLocalRequests(data.map(mapLeaveRequest));
+  }, []);
+  const aiFocus = useAiActionFocus("leave_requests", fetchRequests);
+
+  useEffect(() => { fetchRequests(); }, [fetchRequests]);
+  useEffect(() => { if (aiFocus.id) setFilter("All"); }, [aiFocus.id]);
+
   const filtered = filter === "All" ? localRequests : localRequests.filter((r) => r.status === filter.toLowerCase());
 
-  const handleAction = (id: string, action: "approved" | "rejected") => {
+  const handleAction = async (id: string, action: "approved" | "rejected") => {
     setLocalRequests((prev) => prev.map((r) => r.id === id ? { ...r, status: action } : r));
+    await supabase.from("leave_requests").update({ status: action }).eq("id", id);
   };
 
   const pendingCount = localRequests.filter((r) => r.status === "pending").length;
@@ -84,7 +122,7 @@ const RequestsPage = () => {
             const config = statusConfig[req.status];
             const StatusIcon = config.icon;
             return (
-              <motion.div key={req.id} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.05, duration: 0.25 }} className="glass-card-hover p-5 flex items-center gap-4">
+              <motion.div key={req.id} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.05, duration: 0.25 }} className={`glass-card-hover p-5 flex items-center gap-4 ${aiFocus.focusClass(req.id)}`}>
                 <div className="w-10 h-10 rounded-xl bg-secondary flex items-center justify-center text-xs font-bold text-muted-foreground flex-shrink-0">
                   {req.name.split(" ").map(n => n[0]).join("")}
                 </div>

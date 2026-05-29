@@ -1,6 +1,40 @@
 import { useState, useEffect, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { employees as mockEmployees, Employee } from "@/data/mockData";
+import { chatEvents } from "@/lib/chatEvents";
+
+const mapDbEmployee = (e: any): Employee => ({
+  id: e.id,
+  firstName: e.first_name,
+  lastName: e.last_name,
+  role: e.role || "Employee",
+  department: e.department || "General",
+  avatar: e.avatar || "",
+  phone: e.phone || "",
+  email: e.email || "",
+  level: e.level || "Mid",
+  manager: e.manager || "",
+  city: e.city || "",
+  salary: Number(e.salary) || 0,
+  bonus: Number(e.bonus) || 0,
+  performanceScore: e.performance_score || 70,
+  vacationDays: e.vacation_days || 20,
+  tasksInProgress: e.tasks_in_progress || 0,
+  externalWork: e.external_work || 50,
+  internalWork: e.internal_work || 70,
+  learningProgress: e.learning_progress || 50,
+  avgWorkTime: Number(e.avg_work_time) || 7.5,
+  dateOfBirth: e.date_of_birth,
+  nationality: e.nationality,
+  address: e.address,
+  emergencyContact: e.emergency_contact,
+  emergencyPhone: e.emergency_phone,
+  joinDate: e.join_date,
+  employeeId: e.employee_id,
+  status: e.status as any,
+  skills: e.skills || [],
+  certifications: e.certifications || [],
+} as Employee);
 
 export function useEmployees() {
   const [employees, setEmployees] = useState<Employee[]>(mockEmployees);
@@ -8,45 +42,48 @@ export function useEmployees() {
 
   const fetchEmployees = useCallback(async () => {
     setLoading(true);
-    const { data, error } = await supabase.from("employees").select("*").order("first_name");
+    const { data, error } = await supabase.from("employees").select("*").order("created_at", { ascending: false });
     if (!error && data && data.length > 0) {
-      setEmployees(data.map((e: any) => ({
-        id: e.id,
-        firstName: e.first_name,
-        lastName: e.last_name,
-        role: e.role || "Employee",
-        department: e.department || "General",
-        avatar: e.avatar || "",
-        phone: e.phone || "",
-        email: e.email || "",
-        level: e.level || "Mid",
-        manager: e.manager || "",
-        city: e.city || "",
-        salary: Number(e.salary) || 0,
-        bonus: Number(e.bonus) || 0,
-        performanceScore: e.performance_score || 70,
-        vacationDays: e.vacation_days || 20,
-        tasksInProgress: e.tasks_in_progress || 0,
-        externalWork: e.external_work || 50,
-        internalWork: e.internal_work || 70,
-        learningProgress: e.learning_progress || 50,
-        avgWorkTime: Number(e.avg_work_time) || 7.5,
-        dateOfBirth: e.date_of_birth,
-        nationality: e.nationality,
-        address: e.address,
-        emergencyContact: e.emergency_contact,
-        emergencyPhone: e.emergency_phone,
-        joinDate: e.join_date,
-        employeeId: e.employee_id,
-        status: e.status as any,
-        skills: e.skills || [],
-        certifications: e.certifications || [],
-      })));
+      setEmployees(data.map(mapDbEmployee));
     }
     setLoading(false);
   }, []);
 
   useEffect(() => { fetchEmployees(); }, [fetchEmployees]);
+
+  useEffect(() => {
+    const unsubscribe = chatEvents.on("action", (payload: any) => {
+      if (payload?.table !== "employees") return;
+
+      if (payload.op === "delete" && payload.id) {
+        setEmployees(prev => prev.filter(emp => emp.id !== payload.id));
+        return;
+      }
+
+      if (Array.isArray(payload.records)) {
+        const incoming = payload.records.map(mapDbEmployee);
+        if (payload.op === "list") {
+          setEmployees(incoming);
+          return;
+        }
+        setEmployees(prev => [
+          ...incoming,
+          ...prev.filter(emp => !incoming.some(next => next.id === emp.id)),
+        ]);
+        return;
+      }
+
+      if (payload.record?.id) {
+        const employee = mapDbEmployee(payload.record);
+        setEmployees(prev => [employee, ...prev.filter(emp => emp.id !== employee.id)]);
+        return;
+      }
+
+      fetchEmployees();
+    });
+
+    return unsubscribe;
+  }, [fetchEmployees]);
 
   const importCSV = useCallback(async (csvData: any[]) => {
     const rows = csvData.map((row: any) => ({

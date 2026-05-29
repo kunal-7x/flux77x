@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import TopNav from "@/components/layout/TopNav";
 import AppSidebar from "@/components/layout/AppSidebar";
@@ -17,20 +17,145 @@ import OnboardingPage from "@/pages/OnboardingPage";
 import DocumentsPage from "@/pages/DocumentsPage";
 import EmployeeDirectory from "@/components/employees/EmployeeDirectory";
 import EmployeeDetailPage from "@/components/employees/EmployeeDetailPage";
-import { NavItem } from "@/data/mockData";
+import { NavItem, navItems } from "@/data/mockData";
 import { useEmployees } from "@/hooks/useEmployees";
 import { useTheme } from "@/hooks/useTheme";
+import { chatEvents } from "@/lib/chatEvents";
 
 interface IndexProps {
   onSignOut: () => void;
 }
 
+type AiFocusState = {
+  table: string;
+  op?: string;
+  id?: string;
+  search?: string;
+};
+
+type AiActionPayload = {
+  table?: string;
+  op?: string;
+  id?: string;
+  record?: Record<string, any>;
+  records?: Record<string, any>[];
+};
+
+const TABLE_NAV: Record<string, NavItem> = {
+  employees: "Employees",
+  leave_requests: "Requests",
+  projects: "Projects",
+  project_tasks: "Projects",
+  announcements: "Announcements",
+  attendance_records: "Attendance",
+  jobs: "Recruitment",
+  candidates: "Recruitment",
+  interviews: "Recruitment",
+  goals: "Performance",
+  departments: "Settings",
+  notifications: "Dashboard",
+  onboarding_tasks: "Onboarding",
+  company_settings: "Settings",
+};
+
+const navSet = new Set<string>(navItems);
+
+const getInitialNav = (): NavItem => {
+  if (typeof window === "undefined") return "Dashboard";
+  const nav = new URLSearchParams(window.location.search).get("aiNav");
+  return nav && navSet.has(nav) ? (nav as NavItem) : "Dashboard";
+};
+
+const getInitialAiFocus = (): AiFocusState | null => {
+  if (typeof window === "undefined") return null;
+  const params = new URLSearchParams(window.location.search);
+  const table = params.get("aiTable");
+  if (!table) return null;
+  return {
+    table,
+    op: params.get("aiOp") || undefined,
+    id: params.get("aiFocus") || undefined,
+    search: params.get("aiSearch") || undefined,
+  };
+};
+
+const firstText = (record: Record<string, any> | undefined, keys: string[]) => {
+  if (!record) return "";
+  for (const key of keys) {
+    const value = record[key];
+    if (value !== undefined && value !== null && String(value).trim()) {
+      return String(value).trim();
+    }
+  }
+  return "";
+};
+
+const getPrimaryRecord = (payload: AiActionPayload) => (
+  payload.record || (payload.records?.length === 1 ? payload.records[0] : undefined)
+);
+
+const getAiSearch = (payload: AiActionPayload) => {
+  if (payload.op === "delete" || payload.op === "list") return "";
+  const record = getPrimaryRecord(payload);
+  if (!record) return "";
+
+  if (payload.table === "employees") {
+    const name = [record.first_name || record.firstName, record.last_name || record.lastName]
+      .filter(Boolean)
+      .join(" ")
+      .trim();
+    return name || firstText(record, ["employee_id", "employeeId", "email", "role", "department", "id"]);
+  }
+
+  return firstText(record, [
+    "name",
+    "title",
+    "subject",
+    "employee_name",
+    "candidate_name",
+    "job_title",
+    "email",
+    "status",
+    "department",
+    "role",
+    "id",
+  ]);
+};
+
 const Index = ({ onSignOut }: IndexProps) => {
-  const [activeNav, setActiveNav] = useState<NavItem>("Dashboard");
+  const [activeNav, setActiveNav] = useState<NavItem>(getInitialNav);
   const { employees, importCSV } = useEmployees();
   const [selectedEmployee, setSelectedEmployee] = useState(employees[0]);
   const [viewingEmployee, setViewingEmployee] = useState<typeof employees[0] | null>(null);
+  const [aiFocus, setAiFocus] = useState<AiFocusState | null>(getInitialAiFocus);
   const { layoutMode } = useTheme();
+
+  useEffect(() => {
+    const unsubscribe = chatEvents.on("action", (payload: AiActionPayload) => {
+      if (!payload?.table) return;
+      const nav = TABLE_NAV[payload.table];
+      if (!nav) return;
+
+      const record = getPrimaryRecord(payload);
+      const id = payload.id || record?.id || "";
+      const search = getAiSearch(payload);
+      const nextFocus = { table: payload.table, op: payload.op, id, search };
+
+      setActiveNav(nav);
+      setViewingEmployee(null);
+      setAiFocus(nextFocus);
+
+      const params = new URLSearchParams();
+      params.set("aiNav", nav);
+      params.set("aiTable", payload.table);
+      if (payload.op) params.set("aiOp", payload.op);
+      if (id) params.set("aiFocus", id);
+      if (search) params.set("aiSearch", search);
+      window.history.pushState(null, "", `/?${params.toString()}`);
+    });
+
+    return unsubscribe;
+  }, []);
 
   const handleSelectEmployee = (emp: typeof employees[0]) => {
     setSelectedEmployee(emp);
@@ -66,6 +191,7 @@ const Index = ({ onSignOut }: IndexProps) => {
             employees={employees}
             onSelectEmployee={handleSelectEmployee}
             onImportCSV={importCSV}
+            aiFocus={aiFocus?.table === "employees" ? aiFocus : undefined}
           />
         );
     }
