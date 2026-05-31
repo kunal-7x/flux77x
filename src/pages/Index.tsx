@@ -31,6 +31,7 @@ type AiFocusState = {
   op?: string;
   id?: string;
   search?: string;
+  focusKey?: string;
 };
 
 type AiActionPayload = {
@@ -76,6 +77,7 @@ const getInitialAiFocus = (): AiFocusState | null => {
     op: params.get("aiOp") || undefined,
     id: params.get("aiFocus") || undefined,
     search: params.get("aiSearch") || undefined,
+    focusKey: params.get("aiAt") || undefined,
   };
 };
 
@@ -139,7 +141,8 @@ const Index = ({ onSignOut }: IndexProps) => {
       const record = getPrimaryRecord(payload);
       const id = payload.id || record?.id || "";
       const search = getAiSearch(payload);
-      const nextFocus = { table: payload.table, op: payload.op, id, search };
+      const focusKey = String(Date.now());
+      const nextFocus = { table: payload.table, op: payload.op, id, search, focusKey };
 
       setActiveNav(nav);
       setViewingEmployee(null);
@@ -148,6 +151,7 @@ const Index = ({ onSignOut }: IndexProps) => {
       const params = new URLSearchParams();
       params.set("aiNav", nav);
       params.set("aiTable", payload.table);
+      params.set("aiAt", focusKey);
       if (payload.op) params.set("aiOp", payload.op);
       if (id) params.set("aiFocus", id);
       if (search) params.set("aiSearch", search);

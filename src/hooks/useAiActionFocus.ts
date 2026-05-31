@@ -1,6 +1,8 @@
 import { useEffect, useState } from "react";
 import { chatEvents } from "@/lib/chatEvents";
 
+const AI_FOCUS_VISIBLE_MS = 5000;
+
 type AiActionPayload = {
   table?: string;
   op?: string;
@@ -14,6 +16,7 @@ type AiFocusState = {
   op?: string;
   id?: string;
   search?: string;
+  focusKey?: string;
 };
 
 const getPrimaryRecord = (payload: AiActionPayload) => (
@@ -35,6 +38,7 @@ const getInitialFocus = (tables: string[]): AiFocusState => {
     op: params.get("aiOp") || undefined,
     id: params.get("aiFocus") || undefined,
     search: params.get("aiSearch") || undefined,
+    focusKey: params.get("aiAt") || undefined,
   };
 };
 
@@ -45,6 +49,15 @@ export function useAiActionFocus(
   const tableKey = Array.isArray(tables) ? tables.join("|") : tables;
   const tableList = tableKey.split("|").filter(Boolean);
   const [focus, setFocus] = useState<AiFocusState>(() => getInitialFocus(tableList));
+  const [activeFocusId, setActiveFocusId] = useState(() => getInitialFocus(tableList).id || "");
+
+  useEffect(() => {
+    setActiveFocusId(focus.id || "");
+    if (!focus.id) return;
+
+    const timeout = window.setTimeout(() => setActiveFocusId(""), AI_FOCUS_VISIBLE_MS);
+    return () => window.clearTimeout(timeout);
+  }, [focus.id, focus.focusKey]);
 
   useEffect(() => {
     const unsubscribe = chatEvents.on("action", (payload: AiActionPayload) => {
@@ -53,6 +66,7 @@ export function useAiActionFocus(
         table: payload.table,
         op: payload.op,
         id: getRecordId(payload),
+        focusKey: String(Date.now()),
       });
       onAction?.(payload);
     });
@@ -62,7 +76,8 @@ export function useAiActionFocus(
 
   return {
     ...focus,
-    isFocused: (id?: string) => Boolean(id && focus.id === id),
-    focusClass: (id?: string) => (id && focus.id === id ? "ai-focus-ring" : ""),
+    activeFocusId,
+    isFocused: (id?: string) => Boolean(id && activeFocusId === id),
+    focusClass: (id?: string) => (id && activeFocusId === id ? "ai-focus-ring" : ""),
   };
 }

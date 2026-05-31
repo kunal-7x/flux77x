@@ -15,8 +15,11 @@ interface EmployeeDirectoryProps {
     id?: string;
     search?: string;
     op?: string;
+    focusKey?: string;
   };
 }
+
+const AI_FOCUS_VISIBLE_MS = 5000;
 
 const CSV_TEMPLATE = `first_name,last_name,email,phone,role,department,level,manager,city,salary,bonus,performance_score,vacation_days,date_of_birth,nationality,address,emergency_contact,emergency_phone,join_date,employee_id,status,skills
 John,Doe,john@example.com,(555) 123-4567,Software Engineer,Developers,Senior,Jane Smith,New York,5000,800,85,20,1990-01-15,American,123 Main St,Jane Doe,(555) 987-6543,2022-01-01,EMP-NEW,active,"React,TypeScript,Node.js"`;
@@ -30,8 +33,17 @@ const EmployeeDirectory = ({ employees, onSelectEmployee, onImportCSV, aiFocus }
   const [filterOpen, setFilterOpen] = useState(false);
   const [importOpen, setImportOpen] = useState(false);
   const [importing, setImporting] = useState(false);
+  const [visibleFocusId, setVisibleFocusId] = useState(aiFocus?.id || "");
   const fileRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
+
+  useEffect(() => {
+    setVisibleFocusId(aiFocus?.id || "");
+    if (!aiFocus?.id) return;
+
+    const timeout = window.setTimeout(() => setVisibleFocusId(""), AI_FOCUS_VISIBLE_MS);
+    return () => window.clearTimeout(timeout);
+  }, [aiFocus?.id, aiFocus?.focusKey]);
 
   useEffect(() => {
     if (!aiFocus) return;
@@ -52,9 +64,9 @@ const EmployeeDirectory = ({ employees, onSelectEmployee, onImportCSV, aiFocus }
       return matchSearch && matchDept && matchStatus;
     })
     .sort((a, b) => {
-      if (aiFocus?.id) {
-        if (a.id === aiFocus.id) return -1;
-        if (b.id === aiFocus.id) return 1;
+      if (visibleFocusId) {
+        if (a.id === visibleFocusId) return -1;
+        if (b.id === visibleFocusId) return 1;
       }
       let cmp = 0;
       if (sortBy === "name") cmp = `${a.firstName} ${a.lastName}`.localeCompare(`${b.firstName} ${b.lastName}`);
@@ -177,7 +189,7 @@ const EmployeeDirectory = ({ employees, onSelectEmployee, onImportCSV, aiFocus }
               </thead>
               <tbody>
                 {filtered.map((emp, i) => {
-                  const focused = aiFocus?.id === emp.id;
+                  const focused = visibleFocusId === emp.id;
                   return (
                   <motion.tr key={emp.id} initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: i * 0.02 }}
                     className={`border-b border-border/10 hover:bg-secondary/20 transition-colors cursor-pointer ${focused ? "ai-focus-ring" : ""}`} onClick={() => onSelectEmployee(emp)}>
